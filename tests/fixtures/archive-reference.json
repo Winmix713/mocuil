@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "bf019ab7460994c7523cb70518f0e07c5d104c81",
+  "sourceFileCount": 103,
+  "sourceBytes": 92923498,
+  "matchCount": 24720,
+  "ftValid": 24720,
+  "htValid": 19200,
+  "htMissing": 5520,
+  "htftValid": 19200,
+  "secondHalfValid": 19200,
+  "pairCount": 480,
+  "leagues": {
+    "angol": { "seasonCount": 62, "matches": 14880, "ftValid": 14880, "htValid": 9360, "htMissing": 5520, "pairCount": 240 },
+    "spanyol": { "seasonCount": 41, "matches": 9840, "ftValid": 9840, "htValid": 9840, "htMissing": 0, "pairCount": 240 }
+  }
+}

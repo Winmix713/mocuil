@@ -1,16 +1,21 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { fileURLToPath, URL } from 'node:url';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+    strictPort: true,
+    allowedHosts: ["3000-ihru3ndh11ljwtrossvc2-713d4ae3.us1.manus.computer"],
   },
-  optimizeDeps: {
-    exclude: ['lucide-react'],
+  preview: {
+    host: "0.0.0.0",
+    port: 3000,
+    strictPort: true,
+  },
+  build: {
+    sourcemap: false,
+    target: "es2020",
   },
 });
