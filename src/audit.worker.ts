@@ -16,6 +16,7 @@ import type {
   WorkerMessage,
 } from "./types";
 import { assessPeriodScore, countScoreSample, emptyScoreCounts, periodConsistency, SCORE_CONTRACT_VERSION, sumScoreCounts, toOutcome } from "./score-validation";
+import { auditRunId, matchStableId } from "./audit-core";
 
 interface WorkerScope {
   postMessage: (event: WorkerEvent) => void;
@@ -283,6 +284,9 @@ const analyzeOneSeason = (
     if (ht.status === "invalid") issues.push(`HT_INVALID: ${position}. pozíció, HT ${JSON.stringify([raw.ht_home_score, raw.ht_away_score])}.`);
     if (scores.consistency === "inconsistent") issues.push(`HT_EXCEEDS_FT: ${position}. pozíció, HT ${ht.home}–${ht.away}, FT ${ft.home}–${ft.away}; a második félidős mintából kizárva.`);
     const record: MatchRecord = {
+      id: matchStableId(file, position),
+      sourcePath: file.path,
+      sourceHash: file.sha,
       league: file.league,
       seasonIndex: file.seasonIndex,
       seasonName: file.seasonName,
@@ -532,6 +536,8 @@ const runAudit = async () => {
   const issueCount = seasonQuality.reduce((sum, item) => sum + item.issueCount, 0) + checksumFailures;
   const report: AuditReport = {
     reportSchemaVersion: 2,
+    runId: auditRunId(manifest.treeSha, SCORE_CONTRACT_VERSION),
+    datasetHash: manifest.treeSha,
     scoreContractVersion: SCORE_CONTRACT_VERSION,
     completedAt: new Date().toISOString(),
     source: manifest.source,
