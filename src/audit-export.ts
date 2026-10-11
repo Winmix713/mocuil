@@ -14,7 +14,7 @@ export function pairsCsvContent(report: AuditReport): string {
     "ft_total_goals_json", "ht_total_goals_json", "second_half_total_goals_json", "home_goals_json", "away_goals_json",
     "ft_exact_scores_json", "ht_exact_scores_json", "htft_outcomes_json", "htft_exact_scores_json",
     "top3_ft_scores_json", "top3_ht_scores_json", "top3_htft_outcomes_json", "top3_htft_exact_scores_json", "season_occurrences_json",
-    "valid_htft_n", "invalid_ht_n", "missing_ft_n", "invalid_ft_n", "inconsistent_htft_n", "score_contract_version", "report_schema_version",
+    "valid_htft_n", "invalid_ht_n", "missing_ft_n", "invalid_ft_n", "inconsistent_htft_n", "score_contract_version", "report_schema_version", "run_id", "dataset_hash",
   ];
   const matchesByPair = new Map<string, AuditReport["matches"]>();
   for (const match of report.matches) {
@@ -71,6 +71,8 @@ export function pairsCsvContent(report: AuditReport): string {
       analysis.inconsistentHtFt,
       report.scoreContractVersion,
       report.reportSchemaVersion,
+      report.runId,
+      report.datasetHash,
     ];
   });
   const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
@@ -79,12 +81,16 @@ export function pairsCsvContent(report: AuditReport): string {
 
 export function matchesCsvContent(report: AuditReport): string {
   const header = [
-    "archive_commit", "league", "season_index", "season_name", "match_position", "round_no", "match_in_round",
+    "archive_commit", "dataset_hash", "match_id", "source_path", "source_hash", "league", "season_index", "season_name", "match_position", "round_no", "match_in_round",
     "virtual_time_hh_mm", "home_team", "away_team", "ht_home", "ht_away", "ft_home", "ft_away", "ht_outcome", "ft_outcome",
     "ht_status", "ft_status", "period_consistency", "score_contract_version", "report_schema_version",
   ];
   const rows = report.matches.map((match) => [
     report.commitSha,
+    report.datasetHash,
+    match.id,
+    match.sourcePath,
+    match.sourceHash,
     match.league,
     match.seasonIndex,
     match.seasonName,

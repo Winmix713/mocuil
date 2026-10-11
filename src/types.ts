@@ -39,6 +39,9 @@ export interface ArchiveManifest {
 }
 
 export interface MatchRecord {
+  id: string;
+  sourcePath: string;
+  sourceHash: string;
   league: League;
   seasonIndex: number;
   seasonName: string;
@@ -127,6 +130,8 @@ export interface LeagueSummary extends ScoreSampleCounts {
 
 export interface AuditReport extends ScoreSampleCounts {
   reportSchemaVersion: 2;
+  runId: string;
+  datasetHash: string;
   scoreContractVersion: string;
   completedAt: string;
   source: string;
