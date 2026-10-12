@@ -10,7 +10,7 @@ function runWorker(data, onMessage, { timeoutMs = 15000 } = {}) {
     worker.once('error', error => { clearTimeout(timeout); worker.terminate(); reject(error); });
     worker.on('message', message => {
       messages.push(message);
-      if (message.kind === 'ready') worker.postMessage({ type: 'start', runId });
+      if (message.kind === 'ready') worker.postMessage({ type: 'start', runId, config: data.config, reproduce: data.reproduce });
       try { onMessage?.(message, worker, runId); }
       catch (error) { clearTimeout(timeout); worker.terminate(); reject(error); return; }
       if (message.kind === 'event' && message.event.type !== 'progress') {

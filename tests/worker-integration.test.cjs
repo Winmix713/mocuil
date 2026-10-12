@@ -24,7 +24,7 @@ test('real worker aligns per-pair, per-position, per-season and CSV denominators
   const result = await runWorker(archive([a, b]));
   assert.equal(result.type, 'complete');
   const report = result.report;
-  assert.equal(report.reportSchemaVersion, 2);
+  assert.equal(report.reportSchemaVersion, 3);
   assert.equal(report.scoreContractVersion, '2.0.0');
   assert.equal(report.ftValid, 478);
   assert.equal(report.ftMissing, 1);
@@ -90,7 +90,8 @@ test('null source rows are reported and excluded rather than crashing the whole 
   const input = season(); input.matches[0] = null;
   const result = await runWorker(archive([input]));
   assert.equal(result.type, 'complete');
-  assert.equal(result.report.matchCount, 240);
+  assert.equal(result.report.matchCount, 239);
+  assert.equal(result.report.sourceRecordCount, 240);
   assert.equal(result.report.matches.length, 239);
   assert.equal(result.report.skippedRecords, 1);
   assert.equal(result.report.ftValid, 239);
