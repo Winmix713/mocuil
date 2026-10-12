@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { readErrorDetails, type ErrorDetails } from "./error-details";
+import type { AuditReport } from "./types";
 
 export interface SupabaseLiveStatus {
   state: "connected" | "not-configured" | "error";
@@ -13,6 +14,29 @@ export interface SupabaseLiveStatus {
 
 const projectUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+
+function getClient() {
+  if (!projectUrl || !publishableKey) return null;
+  return createClient(projectUrl, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: { "X-Client-Info": "winmix-pairing-audit/1.0" } },
+  });
+}
+
+export async function loadSavedAuditReport(): Promise<AuditReport | null> {
+  const client = getClient();
+  if (!client) return null;
+  const result = await client.from("winmix_audit_reports").select("report").eq("report_key", "latest").maybeSingle();
+  if (result.error) throw result.error;
+  return (result.data?.report as AuditReport | null) ?? null;
+}
+
+export async function saveAuditReport(report: AuditReport): Promise<void> {
+  const client = getClient();
+  if (!client) return;
+  const result = await client.from("winmix_audit_reports").upsert({ report_key: "latest", report, updated_at: new Date().toISOString() }, { onConflict: "report_key" });
+  if (result.error) throw result.error;
+}
 
 export async function checkSupabaseReadOnly(): Promise<SupabaseLiveStatus> {
   const checkedAt = new Date().toISOString();
