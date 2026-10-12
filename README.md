@@ -2,6 +2,8 @@
 
 A Winmix két virtuális ligájának történeti mérkőzéseit, rendezett hazai–vendég párosításait és HT→FT eredménymintáit auditáló, böngészőben futó elemzőfelület.
 
+Az új [verziózott auditmag dokumentációja](docs/versioned-audit-pipeline.md) rögzíti a normalizált datasetet, a quarantine-t, a konfigurációt, a SHA-256 azonosítókat és a reprodukálási parancsokat. A worker és az offline Node-build közös magot használ; a riport séma v3, a score contract változatlanul 2.0.0.
+
 ## Igazolt adatforrás és hatókör
 
 Az audit a [Winmix713/tertpea](https://github.com/Winmix713/tertpea) nyilvános repository `08_eredeti` archívumából dolgozik. A `public/archive-manifest.json` a forrásfájlokat és SHA-1 blob hashüket az alábbi commithez rögzíti:
@@ -56,6 +58,17 @@ Teljes, commithez kötött archívum-regresszió:
 pnpm test:archive
 ```
 
-A 20 helyi teszt hálózat nélkül fut, és a tényleges worker kódját is ellenőrzi mesterséges hibás bemenetekkel. Az archívum-regresszió első alkalommal letölti a 103 fájlt (92,9 MB), majd minden futáskor méret- és Git-blob SHA-1 ellenőrzéssel vizsgálja őket. A referenciaértékek a `tests/fixtures/archive-reference.json` fájlban vannak; eltérő forráscommit esetén az ellenőrzés leáll. A letöltési cache a `.cache/winmix-archive`; helye a `WINMIX_ARCHIVE_CACHE` környezeti változóval megadható.
+A helyi unit-, worker-integrációs és property-based tesztek hálózat nélkül futnak, és a tényleges worker kódját is ellenőrzi mesterséges hibás bemenetekkel. Az archívum-regresszió a helyi `docs/08_eredeti` másolatból is fut; hiányzó helyi forrás és cache esetén letölti a 103 fájlt (92,9 MB). Minden futáskor méret- és Git-blob SHA-1 ellenőrzéssel vizsgálja őket. A referenciaértékek a `tests/fixtures/archive-reference.json` fájlban vannak; eltérő forráscommit esetén az ellenőrzés leáll. A letöltési cache a `.cache/winmix-archive`; helye a `WINMIX_ARCHIVE_CACHE` környezeti változóval megadható.
 
 A production build a `dist/` könyvtárba kerül. Az audit eredményeit a felület CSV vagy JSON formátumban tölti le; 92,9 MB-os teljes forrásarchívum nem kerül a frontend bundle-be.
+
+
+## Verziózott dataset és reprodukálás
+
+```bash
+pnpm dataset:build
+pnpm dataset:build --config docs/examples/audit-config.json
+pnpm dataset:build --reproduce .generated/SAJAT-FUTAS/audit.json
+```
+
+A kimenet új `.generated/` alkönyvtár: normalizált dataset, quarantine JSONL, minőségi riport, audit JSON és két CSV. A forrásarchívum változatlan marad. A felületen az **Audit reprodukálása** az előző riport rögzített forrását és konfigurációját használja; a **Quarantine** gomb a nyers hibás bejegyzéseket exportálja. A futások IndexedDB-mentése és a böngésző újratöltése utáni visszaállítás még nincs megvalósítva.
