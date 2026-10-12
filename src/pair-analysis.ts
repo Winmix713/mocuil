@@ -1,3 +1,4 @@
+import { compareText } from "./canonical";
 import type { Frequency, MatchRecord } from "./types";
 import { assessMatchScores, countScoreSample, emptyScoreCounts, toOutcome } from "./score-validation";
 
@@ -65,7 +66,7 @@ function frequencies(counts: Counts, denominator: number, order?: string[]): Fre
     .filter(([, count]) => count > 0)
     .sort(([keyA, countA], [keyB, countB]) => orderIndex
       ? (orderIndex.get(keyA) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(keyB) ?? Number.MAX_SAFE_INTEGER)
-      : countB - countA || keyA.localeCompare(keyB, "hu"))
+      : countB - countA || compareText(keyA, keyB))
     .map(([key, count]) => ({ key, count, rate: count / denominator }));
 }
 

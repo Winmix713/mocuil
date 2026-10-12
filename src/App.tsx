@@ -35,7 +35,8 @@ import type {
 } from "./types";
 import { checkSupabaseReadOnly, type SupabaseLiveStatus } from "./supabase";
 import { analyzePairMatches, type GoalLineSummary } from "./pair-analysis";
-import { pairsCsvContent, matchesCsvContent } from "./audit-export";
+import type { ReproductionSpec } from "./dataset-types";
+import { pairsCsvContent, matchesCsvContent, auditJsonContent, quarantineJsonlContent } from "./audit-export";
 import { auditReducer, auditStatusLabel, initialAuditState, type AuditRunState } from "./audit-state";
 import { sumScoreCounts } from "./score-validation";
 
@@ -287,7 +288,7 @@ function PairExplorer({ report, league, setLeague }: {
     : null;
   const pairMatches = useMemo(() => selectedPair ? report.matches
     .filter((match) => match.league === selectedPair.league && match.homeTeam === selectedPair.homeTeam && match.awayTeam === selectedPair.awayTeam) : [], [report.matches, selectedPair]);
-  const analysis = useMemo(() => analyzePairMatches(pairMatches), [pairMatches]);
+  const analysis = useMemo(() => selectedPair?.analysis ?? analyzePairMatches([]), [selectedPair]);
   const occurrences = useMemo(() => pairMatches
     .filter((match) => seasonFilter === "mind" || String(match.seasonIndex) === seasonFilter)
     .filter((match) => roundFilter === "mind" || String(match.roundNo) === roundFilter)
@@ -477,10 +478,11 @@ export default function App() {
     return () => { active = false; controller.abort(); workerRef.current?.terminate(); };
   }, []);
 
-  const startAudit = useCallback(() => {
-    if (!manifest || running || workerRef.current) return;
+  const startAudit = useCallback((reproduce?: ReproductionSpec) => {
+    const sourceManifest = reproduce?.manifest ?? manifest;
+    if (!sourceManifest || running || workerRef.current) return;
     const runId = ++runIdRef.current;
-    dispatchAudit({ type: "start", runId, progress: { phase: "manifest", percent: 0, completedFiles: 0, totalFiles: manifest.seasonCount, completedMatches: 0, totalMatches: manifest.seasonCount * 240, loadedBytes: 0, totalBytes: manifest.expectedByteCount, message: "Audit indítása…" } });
+    dispatchAudit({ type: "start", runId, progress: { phase: "manifest", percent: 0, completedFiles: 0, totalFiles: sourceManifest.seasonCount, completedMatches: 0, totalMatches: sourceManifest.seasonCount * 240, loadedBytes: 0, totalBytes: sourceManifest.expectedByteCount, message: "Audit indítása…" } });
     try {
       const worker = new Worker(new URL("./audit.worker.ts", import.meta.url), { type: "module" });
       workerRef.current = worker;
@@ -503,7 +505,7 @@ export default function App() {
         worker.terminate();
         workerRef.current = null;
       };
-      worker.postMessage({ type: "start", runId });
+      worker.postMessage({ type: "start", runId, reproduce });
     } catch (error) {
       workerRef.current?.terminate();
       workerRef.current = null;
@@ -547,17 +549,42 @@ export default function App() {
           <section className="hero-row">
             <div className="hero-copy"><div className="hero-kicker"><span className="hero-kicker-line" /> TÖRTÉNETI MÉRKŐZÉSELEMZÉS <span className="hero-kicker-id">WM / 01</span></div><h1>Az eredmény mögötti<br /><em>mintázat.</em></h1><p>Végigellenőrizzük a virtuális liga összes múltbeli mérkőzését, irányított párosítását és félidei–végeredmény mintáját.</p></div>
             <div className="hero-action-card"><div className="hero-action-top"><span className="hero-action-icon"><Activity size={19} /></span><span className="source-tag source-tag-ready">ARCHÍVUM PINNED</span></div><strong>{report ? "Audit újraindítása" : "Teljes audit indítása"}</strong><p>{manifest ? `${formatNumber(manifest.seasonCount)} szezon · ${formatNumber(manifest.seasonCount * 240)} meccs · ${formatBytes(manifest.expectedByteCount)}` : "Forrás ellenőrzése…"}</p>
-              <button className="button button-primary" onClick={startAudit} disabled={!manifest || running}>{running ? <><LoaderCircle size={16} className="spin" /> Audit fut…</> : report ? <><RefreshCw size={15} /> Újrafuttatás</> : <><Play size={15} fill="currentColor" /> Audit indítása</>}</button>
+              <button className="button button-primary" onClick={() => startAudit()} disabled={!manifest || running}>{running ? <><LoaderCircle size={16} className="spin" /> Audit fut…</> : report ? <><RefreshCw size={15} /> Újrafuttatás</> : <><Play size={15} fill="currentColor" /> Audit indítása</>}</button>
               {!manifest && <small className="hero-error">{manifestError ? `Manifeszt hiba: ${manifestError}` : "A forrásmanifeszt betöltése…"}</small>}
             </div>
           </section>
 
-          <ProgressPanel state={audit} onCancel={cancelAudit} onRetry={startAudit} hasManifest={!!manifest} />
+          <ProgressPanel state={audit} onCancel={cancelAudit} onRetry={() => startAudit()} hasManifest={!!manifest} />
           {audit.status === "cancelled" && <div className="cancel-note"><CircleAlert size={15} /> Az auditot megszakítottad. Az elkészült félkész adatok nem kerülnek végleges eredményként megjelenítésre. <button aria-label="Megszakítási üzenet bezárása" onClick={() => dispatchAudit({ type: "dismiss" })}><X size={13} /></button></div>}
 
           <SourceCard manifest={manifest} liveStatus={liveStatus} />
 
-          {report && <div className="result-toolbar"><div className="result-state"><span className="result-check"><CircleCheck size={16} /></span><div><b>{audit.status === "completed" ? "Audit kész" : "Előző sikeres audit"} · {new Date(report.completedAt).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" })}</b><small>Forrás commit: {report.commitSha.slice(0, 12)} · Audit: {report.runId.slice(0, 16)} · FT {formatNumber(report.ftValid)}/{formatNumber(report.matchCount)} · HT hiányzó {formatNumber(report.htMissing)}</small></div></div><div className="export-actions"><button className="button button-ghost" onClick={() => downloadFile("winmix-pairing-audit.csv", pairsCsvContent(report), "text/csv;charset=utf-8")}><FileDown size={15} /> Párok CSV</button><button className="button button-ghost" onClick={() => downloadFile("winmix-historical-matches.csv", matchesCsvContent(report), "text/csv;charset=utf-8")}><Download size={15} /> Meccsek CSV</button><button className="button button-ghost" onClick={() => downloadFile("winmix-full-audit.json", JSON.stringify(report), "application/json;charset=utf-8")}><Download size={15} /> Audit JSON</button></div></div>}
+          {report && <div className="result-toolbar">
+            <div className="result-state">
+              <span className="result-check"><CircleCheck size={16} /></span>
+              <div>
+                <b>{audit.status === "completed" ? "Audit kész" : "Előző sikeres audit"} · {new Date(report.completedAt).toLocaleString("hu-HU", { dateStyle: "medium", timeStyle: "short" })}</b>
+                <small>Forrás commit: {report.commitSha.slice(0, 12)} · Audit: {report.runId.slice(0, 16)} · FT {formatNumber(report.ftValid)}/{formatNumber(report.matchCount)} · HT hiányzó {formatNumber(report.htMissing)}</small>
+              </div>
+            </div>
+            <div className="export-actions">
+              <button className="button button-ghost" disabled={running} onClick={() => startAudit(report.reproduction)} title="Azonos forrásmanifeszt, konfiguráció és számítási verzió; a dataset-hash és futásazonosító kötelezően egyezik.">
+                <RefreshCw size={15} /> Audit reprodukálása
+              </button>
+              <button className="button button-ghost" onClick={() => downloadFile("winmix-quarantine.jsonl", quarantineJsonlContent(report, new Date().toISOString()), "application/x-ndjson;charset=utf-8")}>
+                <ShieldCheck size={15} /> Quarantine ({report.quarantine.length})
+              </button>
+              <button className="button button-ghost" onClick={() => downloadFile("winmix-pairing-audit.csv", pairsCsvContent(report, new Date().toISOString()), "text/csv;charset=utf-8")}>
+                <FileDown size={15} /> Párok CSV
+              </button>
+              <button className="button button-ghost" onClick={() => downloadFile("winmix-historical-matches.csv", matchesCsvContent(report, new Date().toISOString()), "text/csv;charset=utf-8")}>
+                <Download size={15} /> Meccsek CSV
+              </button>
+              <button className="button button-ghost" onClick={() => downloadFile("winmix-full-audit.json", auditJsonContent(report, new Date().toISOString()), "application/json;charset=utf-8")}>
+                <Download size={15} /> Audit JSON
+              </button>
+            </div>
+          </div>}
 
           <div className="view-tabs" role="tablist" aria-label="Elemzési nézetek">
             {navItems.map((item) => <button key={item.id} role="tab" aria-selected={view === item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><item.icon size={15} />{item.label}{item.id === "pairs" && report && <span>{formatNumber(selectedPairCount)}</span>}</button>)}

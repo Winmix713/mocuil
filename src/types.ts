@@ -1,3 +1,6 @@
+import type { AuditConfig, AuditExclusion, DatasetQuality, QuarantineEntry, ReproductionSpec } from "./dataset-types";
+import type { PairAnalysis } from "./pair-analysis";
+
 export type League = "angol" | "spanyol";
 export type LeagueFilter = League | "mindkettő";
 export type Outcome = "H" | "D" | "A";
@@ -42,6 +45,14 @@ export interface MatchRecord {
   id: string;
   sourcePath: string;
   sourceHash: string;
+  sourceRow: number;
+  sourceContentHash: string | null;
+  importVersion: string;
+  kickoffIso: string | null;
+  kickoffIsoStatus: ScoreStatus;
+  qualityStatus: "valid" | "missing" | "invalid";
+  homeTeamId: string;
+  awayTeamId: string;
   league: League;
   seasonIndex: number;
   seasonName: string;
@@ -76,6 +87,8 @@ export interface SeasonBreakdown extends ScoreSampleCounts {
 }
 
 export interface PairSummary extends ScoreSampleCounts {
+  analysis: PairAnalysis;
+  recordIds: string[];
   league: League;
   homeTeam: string;
   awayTeam: string;
@@ -129,7 +142,16 @@ export interface LeagueSummary extends ScoreSampleCounts {
 }
 
 export interface AuditReport extends ScoreSampleCounts {
-  reportSchemaVersion: 2;
+  reportSchemaVersion: 3;
+  pipelineVersion: string;
+  sourceHash: string;
+  config: AuditConfig;
+  inputRecordIds: string[];
+  exclusions: AuditExclusion[];
+  quarantine: QuarantineEntry[];
+  dataQuality: DatasetQuality;
+  reproduction: ReproductionSpec;
+  sourceRecordCount: number;
   runId: string;
   datasetHash: string;
   scoreContractVersion: string;
@@ -166,7 +188,7 @@ export interface AuditProgress {
 }
 
 export type WorkerMessage =
-  | { type: "start"; runId: number }
+  | { type: "start"; runId: number; config?: AuditConfig; reproduce?: ReproductionSpec }
   | { type: "cancel"; runId: number };
 
 export type WorkerEventPayload =
