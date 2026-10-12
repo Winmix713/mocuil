@@ -11,6 +11,7 @@ export interface AuditRunState {
 }
 export const initialAuditState: AuditRunState = { runId: 0, status: "idle", progress: null, error: null, report: null };
 export type AuditAction =
+  | { type: "hydrate"; report: AuditReport }
   | { type: "start"; runId: number; progress: AuditProgress }
   | { type: "worker"; event: WorkerEvent }
   | { type: "cancel"; runId: number }
@@ -25,6 +26,9 @@ export function auditStatusLabel(state: AuditRunState): string {
 }
 
 export function auditReducer(state: AuditRunState, action: AuditAction): AuditRunState {
+  if (action.type === "hydrate") {
+    return state.status === "running" ? state : { ...state, status: "completed", report: action.report, error: null };
+  }
   if (action.type === "start") {
     if (state.status === "running" || action.runId <= state.runId) return state;
     return { ...state, runId: action.runId, status: "running", progress: action.progress, error: null };

@@ -33,7 +33,7 @@ import type {
   Frequency,
   WorkerEvent,
 } from "./types";
-import { checkSupabaseReadOnly, type SupabaseLiveStatus } from "./supabase";
+import { checkSupabaseReadOnly, loadSavedAuditReport, saveAuditReport, type SupabaseLiveStatus } from "./supabase";
 import { analyzePairMatches, type GoalLineSummary } from "./pair-analysis";
 import type { ReproductionSpec } from "./dataset-types";
 import { pairsCsvContent, matchesCsvContent, auditJsonContent, quarantineJsonlContent } from "./audit-export";
@@ -475,6 +475,9 @@ export default function App() {
       .then((data) => { if (active) setManifest(data); })
       .catch((error: unknown) => { if (active) setManifestError(error instanceof Error ? error.message : String(error)); });
     checkSupabaseReadOnly().then((status) => { if (active) setLiveStatus(status); });
+    loadSavedAuditReport()
+      .then((savedReport) => { if (active && savedReport) dispatchAudit({ type: "hydrate", report: savedReport }); })
+      .catch(() => undefined);
     return () => { active = false; controller.abort(); workerRef.current?.terminate(); };
   }, []);
 
@@ -491,6 +494,7 @@ export default function App() {
         if (workerRef.current !== worker || payload.runId !== runId) return;
         dispatchAudit({ type: "worker", event: payload });
         if (payload.type === "complete") {
+          void saveAuditReport(payload.report).catch(() => undefined);
           setView("overview");
           setLeague("mindkettő");
         }
