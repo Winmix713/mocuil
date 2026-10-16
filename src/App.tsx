@@ -31,10 +31,12 @@ import type {
   League,
   LeagueFilter,
   Frequency,
+  MatchRecord,
+  PairSummary,
   WorkerEvent,
 } from "./types";
 import { checkSupabaseReadOnly, loadSavedAuditReport, saveAuditReport, type SupabaseLiveStatus } from "./supabase";
-import { analyzePairMatches, type GoalLineSummary } from "./pair-analysis";
+import { analyzePairMatches, type GoalLineSummary, type PairAnalysis } from "./pair-analysis";
 import type { ReproductionSpec } from "./dataset-types";
 import { pairsCsvContent, matchesCsvContent, auditJsonContent, quarantineJsonlContent } from "./audit-export";
 import { auditReducer, auditStatusLabel, initialAuditState, type AuditRunState } from "./audit-state";
@@ -257,7 +259,69 @@ function Overview({ report, league, setLeague, onOpenPairs }: {
   );
 }
 
+function poissonSample(lambda: number) {
+  const limit = Math.exp(-lambda);
+  let k = 0;
+  let product = 1;
+  do {
+    k += 1;
+    product *= Math.random();
+  } while (product > limit);
+  return k - 1;
+}
+
+function PairSimulator({ pair, matches, analysis }: { pair: PairSummary; matches: MatchRecord[]; analysis: PairAnalysis }) {
+  const validMatches = matches.filter((match) => match.ftStatus === "valid" && match.ftHome !== null && match.ftAway !== null);
+  const historicalHome = validMatches.length ? validMatches.reduce((sum, match) => sum + (match.ftHome ?? 0), 0) / validMatches.length : analysis.averages.ftHome ?? 1;
+  const historicalAway = validMatches.length ? validMatches.reduce((sum, match) => sum + (match.ftAway ?? 0), 0) / validMatches.length : analysis.averages.ftAway ?? 1;
+  const [iterations, setIterations] = useState("50000");
+  const [bttsTarget, setBttsTarget] = useState("58");
+  const [result, setResult] = useState<{ scores: { key: string; count: number }[]; homeWin: number; awayWin: number; draw: number; btts: number; avgHome: number; avgAway: number } | null>(null);
+  const [error, setError] = useState("");
+
+  const runSimulation = () => {
+    const count = Number(iterations);
+    const target = Number(bttsTarget);
+    if (!Number.isInteger(count) || count < 1000 || count > 200000) { setError("A futtatások száma 1 000 és 200 000 közötti egész szám legyen."); return; }
+    if (!Number.isFinite(target) || target < 0 || target > 100) { setError("A BTTS-célérték 0 és 100 közötti szám legyen."); return; }
+    setError("");
+    const baseBtts = (1 - Math.exp(-historicalHome)) * (1 - Math.exp(-historicalAway));
+    const boost = Math.max(-0.65, Math.min(0.65, ((target / 100) - baseBtts) * 1.3));
+    const scores = new Map<string, number>();
+    let homeWin = 0, awayWin = 0, draw = 0, btts = 0, totalHome = 0, totalAway = 0;
+    for (let index = 0; index < count; index += 1) {
+      let home = poissonSample(historicalHome);
+      let away = poissonSample(historicalAway);
+      if (Math.random() < Math.abs(boost)) {
+        if (boost > 0) { if (home === 0 && Math.random() < 0.72) home = 1; if (away === 0 && Math.random() < 0.72) away = 1; }
+        else if (home > 0 && away > 0) { if (Math.random() < 0.5) home = 0; else away = 0; }
+      }
+      const key = `${home}-${away}`;
+      scores.set(key, (scores.get(key) ?? 0) + 1);
+      totalHome += home; totalAway += away;
+      if (home > away) homeWin += 1; else if (away > home) awayWin += 1; else draw += 1;
+      if (home > 0 && away > 0) btts += 1;
+    }
+    setResult({ scores: [...scores.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count).slice(0, 3), homeWin: homeWin / count, awayWin: awayWin / count, draw: draw / count, btts: btts / count, avgHome: totalHome / count, avgAway: totalAway / count });
+  };
+
+  return <section className="simulator-panel">
+    <div className="simulator-intro"><div><span className="eyebrow">MONTE CARLO MATCH LAB</span><h3>Futtasd le a mérkőzést.</h3><p>A kiválasztott párosítás történeti gólátlagából szimulációs becslést készítünk. Ez nem eredményígéret.</p></div><span className="simulator-badge">01 / INPUT</span></div>
+    <div className="simulator-layout"><div className="simulator-controls">
+      <div className="simulator-matchup"><span>{pair.homeTeam}</span><b>vs</b><span>{pair.awayTeam}</span></div>
+      <div className="simulator-fields"><label>Hazai átlaggól<input type="number" value={historicalHome.toFixed(2)} readOnly /></label><label>Vendég átlaggól<input type="number" value={historicalAway.toFixed(2)} readOnly /></label></div>
+      <label className="simulator-range">BTTS modell-célérték <output>{bttsTarget}%</output><input type="range" min="0" max="100" value={bttsTarget} onChange={(event) => setBttsTarget(event.target.value)} /></label>
+      <label className="simulator-number">Futtatások száma<input type="number" min="1000" max="200000" step="1000" value={iterations} onChange={(event) => setIterations(event.target.value)} /></label>
+      <button className="button button-primary" onClick={runSimulation}><Play size={15} fill="currentColor" /> Szimuláció futtatása</button>
+      {error && <span className="hero-error" role="alert">{error}</span>}
+    </div><div className="simulator-results">
+      {!result ? <div className="simulator-empty"><BarChart3 size={27} /><strong>Készen áll az elemzésre</strong><span>Az eredmények itt jelennek meg.</span></div> : <><div className="simulator-result-head"><span className="eyebrow">02 / OUTPUT</span><strong>Top 3 szimulált eredmény</strong></div><div className="simulator-score-list">{result.scores.map((item, index) => <div className="simulator-score" key={item.key}><span className="rank">{String(index + 1).padStart(2, "0")}</span><b>{item.key.replace("-", " : ")}</b><strong>{formatRate(item.count / Number(iterations))}</strong><small>{formatNumber(item.count)} alkalom</small></div>)}</div><div className="simulator-stat-grid"><span><small>BTTS</small><b>{formatRate(result.btts)}</b></span><span><small>Hazai győzelem</small><b>{formatRate(result.homeWin)}</b></span><span><small>Döntetlen</small><b>{formatRate(result.draw)}</b></span><span><small>Vendég győzelem</small><b>{formatRate(result.awayWin)}</b></span></div><p className="simulator-method"><b>Modell:</b> {formatNumber(Number(iterations))} Monte Carlo futtatás, Poisson-alapú gólszám-becslés. Átlagos szimulált gól: {result.avgHome.toFixed(2).replace(".", ",")} – {result.avgAway.toFixed(2).replace(".", ",")}.</p></>}
+    </div></div>
+  </section>;
+}
+
 function PairExplorer({ report, league, setLeague }: {
+
   report: AuditReport;
   league: LeagueFilter;
   setLeague: (value: LeagueFilter) => void;
@@ -315,7 +379,8 @@ function PairExplorer({ report, league, setLeague }: {
               <p>A hazai–vendég irány változatlan az összesített szezonok között.</p>
               <div className="pair-detail-stats"><div><span>Találkozó</span><strong>{formatNumber(selectedPair.matches)}</strong></div><div><span>Érvényes HT</span><strong>{formatNumber(selectedPair.htValid)}</strong></div><div><span>Hiányzó HT</span><strong className={selectedPair.htMissing ? "warn-number" : ""}>{formatNumber(selectedPair.htMissing)}</strong></div></div>
             </section>
-            {(analysis.invalidHt > 0 || analysis.invalidFt > 0 || analysis.missingFt > 0 || analysis.inconsistentHtFt > 0) && <div className="analysis-note"><CircleAlert size={18} /><div><b>Adatminőségi eltérés ebben a párosításban</b><p>Hibás HT: {analysis.invalidHt} · hibás FT: {analysis.invalidFt} · hiányzó FT: {analysis.missingFt} · ellentmondó HT/FT: {analysis.inconsistentHtFt}. Az ellentmondó álláspárok a megfigyelt átmenetekben megmaradnak, a második félidős mintából kimaradnak.</p></div></div>}
+            {(analysis.invalidHt > 0 || analysis.invalidFt > 0 || analysis.missingFt > 0 || analysis.inconsistentHtFt > 0) && <div className="analysis-note"><CircleAlert size={18} /><div><b>Adatminőségi eltérés ebben a párosításban</b><p>Hibás HT: {analysis.invalidHt} · hibás FT: {analysis.invalidFt} · hiányzó FT: {analysis.missingFt} · ellentmondó HT/FT: {analysis.inconsistentHtFt}. Az ellentmondó álláspárok a megfigyelt átmenetekben megmaradnak, a második f��lidős mintából kimaradnak.</p></div></div>}
+            <PairSimulator pair={selectedPair} matches={pairMatches} analysis={analysis} />
             <div className="stats-grid pair-stat-grid">
               <StatCard label="Érvényes FT-minta" value={formatNumber(analysis.validFt)} note={`${formatNumber(analysis.validHt)} érvényes HT · ${formatNumber(analysis.validSecondHalf)} érvényes 2. félidő`} icon={ListChecks} />
               <StatCard label="FT összgólátlag" value={formatAverage(analysis.averages.ftTotal)} note={`Hazai ${formatAverage(analysis.averages.ftHome)} · vendég ${formatAverage(analysis.averages.ftAway)}`} icon={Activity} />

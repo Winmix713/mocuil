@@ -273,7 +273,50 @@ a { color: inherit; text-decoration: none; }
 .pair-detail-stats span { color: #859180; font-size: 8px; }
 .pair-detail-stats strong { color: #ecf2e7; font-family: var(--mono); font-size: 13px; font-weight: 500; }
 .pair-detail-stats .warn-number { color: var(--amber); }
-.pair-detail-column .panel { padding: 12px; }
+  .simulator-panel { padding: 18px; border: 1px solid rgba(203,255,98,.16); border-radius: 10px; background: linear-gradient(145deg, rgba(203,255,98,.055), #141a15 55%); }
+  .simulator-intro, .simulator-result-head, .simulator-matchup { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .simulator-intro { align-items: flex-start; margin-bottom: 16px; }
+  .simulator-intro h3 { margin: 7px 0 4px; font-size: 18px; letter-spacing: -.04em; }
+  .simulator-intro p { max-width: 560px; margin: 0; color: #8a9687; font-size: 10px; line-height: 1.5; }
+  .simulator-badge { color: var(--muted); font-family: var(--mono); font-size: 8px; letter-spacing: .12em; white-space: nowrap; }
+  .simulator-layout { display: grid; grid-template-columns: minmax(250px, .85fr) minmax(300px, 1.15fr); gap: 16px; }
+  .simulator-controls, .simulator-results { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: rgba(10,15,11,.35); }
+  .simulator-matchup { justify-content: flex-start; margin-bottom: 14px; color: #dbe5d7; font-size: 12px; font-weight: 700; }
+  .simulator-matchup b { color: var(--lime); font-family: var(--mono); font-size: 9px; text-transform: uppercase; }
+  .simulator-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .simulator-fields label, .simulator-number { display: grid; gap: 6px; color: #9ca99a; font-size: 9px; }
+  .simulator-fields input, .simulator-number input { width: 100%; padding: 8px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: #101510; color: var(--text); font-family: var(--mono); font-size: 10px; }
+  .simulator-range { display: grid; gap: 7px; margin: 13px 0; color: #9ca99a; font-size: 9px; }
+  .simulator-range output { color: var(--lime); font-family: var(--mono); font-size: 10px; }
+  .simulator-range input { accent-color: var(--lime); }
+  .simulator-number { margin-bottom: 13px; }
+  .simulator-controls .button { width: 100%; }
+  .simulator-empty { display: grid; min-height: 180px; place-items: center; align-content: center; gap: 8px; color: #7f8c7d; text-align: center; }
+  .simulator-empty svg { color: var(--lime); }
+  .simulator-empty strong { color: #d3ddd0; font-size: 12px; }
+  .simulator-empty span { font-size: 9px; }
+  .simulator-result-head { margin-bottom: 12px; }
+  .simulator-result-head strong { color: #d4dfd0; font-size: 11px; }
+  .simulator-score-list { display: grid; gap: 6px; }
+  .simulator-score { display: grid; grid-template-columns: 25px 1fr auto; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
+  .simulator-score .rank { color: var(--lime); font-family: var(--mono); font-size: 9px; }
+  .simulator-score b { color: #e5eee1; font-family: var(--mono); font-size: 13px; }
+  .simulator-score strong { color: var(--lime); font-family: var(--mono); font-size: 11px; }
+  .simulator-score small { grid-column: 2 / -1; margin-top: -5px; color: #778474; font-size: 8px; }
+  .simulator-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+  .simulator-stat-grid span { display: grid; gap: 3px; padding: 7px 8px; border-left: 1px solid var(--line); }
+  .simulator-stat-grid span:first-child { border-left: 0; }
+  .simulator-stat-grid small { color: #829080; font-size: 8px; }
+  .simulator-stat-grid b { color: #dce8d8; font-family: var(--mono); font-size: 11px; }
+  .simulator-method { margin: 12px 0 0; color: #788576; font-size: 8px; line-height: 1.5; }
+  .simulator-method b { color: #aab7a5; }
+  .pair-detail-column .panel { padding: 12px; }
+  @media (max-width: 680px) {
+    .simulator-layout { grid-template-columns: 1fr; }
+    .simulator-intro { display: grid; }
+    .simulator-stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .simulator-stat-grid span:nth-child(3) { border-left: 0; }
+  }
 .pair-detail-column .panel-heading { margin-bottom: 10px; }
 .pair-detail-column .panel-heading h3 { font-size: 10px; }
 .pair-detail-column .frequency-list { gap: 8px; }
